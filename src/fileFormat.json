@@ -1,0 +1,9 @@
+{
+    "txt" : "notes",
+
+    "jpg" : "photo",
+    "jpeg": "photo",
+    "png" : "photo",
+    
+    "mp3" : "album"
+}
