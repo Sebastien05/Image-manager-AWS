@@ -73,8 +73,7 @@
                       List files ~ bucket: {{currBucket}}
                       <v-spacer></v-spacer>
                       <v-card
-                        style="font-weight:bold;"
-                        shaped
+                        style="font-weight:italic;"
                         class="px-3 py-1">
                         File Number : {{listObjects.length}} 
                       </v-card>
@@ -137,11 +136,19 @@
                 <v-card-actions>
                   <template>
                     <v-file-input class="mt-5 ml-4" accept="image/*,audio/*,text/*" filled label="File input" v-model="fileToUpload" dense></v-file-input>
+                    <!-- <v-text-field label="Select Image" @click='pickFile' v-model='imageName' prepend-icon='attach_file'></v-text-field>
+                    <input
+                      type="file"
+                      style="display: none"
+                      ref="image"
+                      accept="image/*"
+                      @change="newUpload"
+                    > -->
                   </template>
                   <v-spacer></v-spacer>
                   <v-btn color="primary"
                     
-                    text @click="uploadFile">
+                    text @click="imageRekognition">
                     Upload
                   </v-btn>
                   <v-btn color="primary"
@@ -151,6 +158,24 @@
                     Exit
                   </v-btn>
                 </v-card-actions>
+              </div>
+              <div>
+                <v-dialog 
+                  v-model="categoryDialog"
+                  max-width="800" 
+                  persistent 
+                  no-click-animation
+                >
+                  <v-card>
+                    <v-card-title class="subtitle-1">Upload to..</v-card-title>
+                    <CategoryModal
+                    :listLabels="listCategory"
+                    :image="image"
+                    v-on:leave-labels-modal="leaveLabelsModal"
+                    v-on:validate-image-labels="uploadImageWithLabels"/>
+                  </v-card>
+                
+                </v-dialog>
               </div>
             </v-card>
           </div>
@@ -163,11 +188,12 @@
 <script>
 
 import FileRow from '@/components/FileRow';
-//var fs = require('fs'); 
+import CategoryModal from '@/components/CategoryModal';
 
 export default {
   components: {
-      FileRow
+      FileRow,
+      CategoryModal
   },
   data () {
     return {
@@ -180,8 +206,13 @@ export default {
       loadingFiles : true,
       loadingFile : false,
       loadingReady : true,
+
       image: null,
       fileToUpload: null,
+      imageName: null,
+      listCategory: [],
+      categoryDialog: false,
+      
       absolute: true,
       format : require('./fileFormat.json'),
       path : "https://n2mvpkp1y0.execute-api.eu-central-1.amazonaws.com/api"
@@ -248,11 +279,49 @@ export default {
         };
       })
     },
+
+    leaveLabelsModal (){
+      this.categoryDialog = false;
+      this.listCategory = [];
+    },
+
+    async imageRekognition () {
+      const extFile = this.fileToUpload.name.match(/\.[0-9a-z]+$/i)[0];
+
+      if (this.fileToUpload && 
+      ( extFile == ".jpg" ||
+        extFile == ".png" ||
+        extFile == ".jpeg")) {
+        
+        const base64Image  = await (this.getBase64(this.fileToUpload));
+        const base64ImageF = base64Image.replace(/^data:image\/jpeg;base64,/,"");
+        const link = this.path + '/base64-recognition';
+        
+        //console.log(base64Image)
+        
+        fetch (link, {
+            method: 'POST',
+            body: JSON.stringify(base64ImageF)
+        })
+        .then(res => res.json())
+        .then(data => {
+          console.log(data);
+          this.image = base64Image;
+          this.categoryDialog = true;
+          this.listCategory = data.Labels;
+        });
+      }  
+    },
+
+    uploadImageWithLabels (labelsSelected) {
+      console.log(labelsSelected);
+    },
+
     async uploadFile () {
 
-      // const base64Format = await (this.getBase64 (this.fileToUpload));
-      // console.log(base64Format);
-      const link = this.path + '/upload-up' +"?bucket=" + this.currBucket + "&fileName=" + this.fileToUpload.name;
+      //const base64Format = await (this.getBase64 (this.fileToUpload));
+      //console.log(base64Format);
+      const link = this.path + '/upload-up' +"?bucket=" + this.currBucket + "&fileName=" +  + this.fileToUpload.name;
       console.log(this.fileToUpload)
     
       if (this.fileToUpload) {  
@@ -275,26 +344,6 @@ export default {
           console.log(this.listObjects)
           })
       }
-    },
-    async download (fileName) {
-      let link = this.path + '/download?bucket=' + this.currBucket + "&fileName="+ fileName;
-      fetch(link)
-      .then(response => response.json())
-      .then(data => {
-        this.image = data,
-        console.log(data)
-        })
-
-      // await new Promise((resolve, reject) => {
-      //   const fileStream = fs.createWriteStream(fileName);
-      //   res.body.pipe(fileStream);
-      //   res.body.on("error", (err) => {
-      //     reject(err);
-      //   });
-      //   fileStream.on("finish", function() {
-      //     resolve();
-      //   });
-      // });
     },
     clearImage () {
       this.dialog = false;
