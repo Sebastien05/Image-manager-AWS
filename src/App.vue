@@ -68,7 +68,7 @@
                   </v-container>
                 </v-overlay>
                 <v-scale-transition style="width: 100%;" class="d-flex flex-wrap">
-                  <v-list dense flat>
+                  <v-list dense flat v-if="inFolder">
                     <v-subheader class="mt-4 mb-7 mr-7 subtitle-1 ml-5 d-flex "> 
                       List files ~ bucket: {{currBucket}}
                       <v-spacer></v-spacer>
@@ -86,7 +86,7 @@
                       
                         <FileRow
                           :fileName="file"
-                          :path='"https://n2mvpkp1y0.execute-api.eu-central-1.amazonaws.com/api/test?bucket=sebs3bucket"' 
+                          :path="currFolder"
                           v-on:delete-file-row='deleteFileRow'
                           v-on:read-raw-file='readRawFile'
                           :key="i"/>
@@ -114,13 +114,13 @@
                               </v-overlay>
                             </div>
                             <div v-else>  
-                              <v-card-title class="headline">RawFile</v-card-title>
+                              <v-card-title class="headline">Display Image</v-card-title>
                               <v-card-text>
                                 <div v-if="image">
                                  <img :src="image" class="ml-8" style="display:block;width:100%;max-width:600px">
                                 </div>
                                 <div v-else>
-                                  {{currRawFile}}
+                                  {{currRawTextFile}}
                                 </div>
                               </v-card-text>
                               <v-card-actions>
@@ -132,8 +132,30 @@
                       </v-dialog>
                     </v-list-item>
                   </v-list>
+                  <v-list dense flat v-else>
+                    <v-subheader class="mt-4 mb-7 mr-7 subtitle-1 ml-5 d-flex "> 
+                      List folder ~ bucket: {{currBucket}}
+                      <v-spacer></v-spacer>
+                      <v-card
+                        style="font-weight:italic;"
+                        class="px-3 py-1">
+                        Folder Number : {{listFolder.length}} 
+                      </v-card>
+                    </v-subheader>
+                    <v-list-item 
+                      class="file-list-item"
+                      v-for="(folder, i) in listFolder"
+                      :key="i"
+                    >
+                      <FolderRow
+                        :folderName="folder"
+                        v-on:select-folder="selectFolder"
+                        :key="i"
+                      />
+                    </v-list-item>
+                  </v-list>
                 </v-scale-transition>
-                <v-card-actions>
+                <v-card-actions v-if="!inFolder">
                   <template>
                     <v-file-input class="mt-5 ml-4" accept="image/*,audio/*,text/*" filled label="File input" v-model="fileToUpload" dense></v-file-input>
                     <!-- <v-text-field label="Select Image" @click='pickFile' v-model='imageName' prepend-icon='attach_file'></v-text-field>
@@ -158,30 +180,37 @@
                     Exit
                   </v-btn>
                 </v-card-actions>
-              </div>
-              <div>
-                <v-dialog 
-                  v-model="categoryDialog"
-                  max-width="800" 
-                  persistent 
-                  no-click-animation
-                >
-                  <v-card>
-                    <v-card-title class="subtitle-1">Upload to..</v-card-title>
-                    <CategoryModal
-                    :listLabels="listCategory"
-                    :image="image"
-                    v-on:leave-labels-modal="leaveLabelsModal"
-                    v-on:validate-image-labels="uploadImageWithLabels"/>
-                  </v-card>
-                
-                </v-dialog>
+                <v-card-actions v-else>
+                  <v-spacer></v-spacer>
+                  <v-btn color="primary"
+                  @click="leaveCurrFolder"
+                    class="mr-5"
+                    text>
+                    Exit
+                  </v-btn>
+                </v-card-actions>
               </div>
             </v-card>
           </div>
         </v-col>
       </v-row>
     </v-container>
+    <v-dialog 
+      v-model="categoryDialog"
+      max-width="800" 
+      persistent 
+      no-click-animation
+    >
+      <v-card>
+        <v-card-title class="subtitle-1">Choose a Label to upload</v-card-title>
+        <CategoryModal
+        :listLabels="listCategory"
+        :image="image"
+        v-on:leave-labels-modal="leaveLabelsModal"
+        v-on:validate-image-labels="uploadImageWithLabels"/>
+      </v-card>
+    
+    </v-dialog>
   </v-app>
 </template>
 
@@ -189,19 +218,26 @@
 
 import FileRow from '@/components/FileRow';
 import CategoryModal from '@/components/CategoryModal';
+import FolderRow from '@/components/FolderRow';
 
 export default {
   components: {
       FileRow,
-      CategoryModal
+      CategoryModal,
+      FolderRow
   },
   data () {
     return {
       dialog : false,
       currBucket : "sebs3bucket",
       listObjects : [],
-      query : '', 
-      currRawFile : null,
+      treeFile: null,
+      listFolder: [],
+      inFolder: false,
+      currFolder: null,
+      
+      query : '',
+      currRawTextFile : null,
       isValid : false,
       loadingFiles : true,
       loadingFile : false,
@@ -224,47 +260,77 @@ export default {
       let link = this.path + '/test?bucket=' + this.currBucket;
       fetch (link).then(response => response.json())
       .then(data => {
-        this.listObjects = data;
+        this.listObjects  = data.lfn;
+        // Array of all bucket file   :> Key = filePathName : Value = File
+        this.treeFile     = data.ft;
+        // formatted object           :> Key = folderName   : Value = Array [File]
+        this.listFolder   = Object.keys(data.ft);
+        // Array of all folder Name
         this.loadingFiles = false
       })
     },
     leaveCurrBucket () {
-      this.listObjects = [];
       this.loadingReady = true;
       this.loadingFiles = true;
     },
+    leaveCurrFolder () {
+      // When leaving a folder, need to reset properties and reload all data in case there has been a change elsewhere
+      this.listObjects = [];
+      this.inFolder = false;
+      this.getListObjects();
+    },
+    selectFolder (folderName) {
+      // build the file array to display when entering a folder
+      let arrImg = [];
+      const folder= this.treeFile[folderName];
+      for(let i in folder){
+        arrImg.push(folder[i].Key);
+      }
+      this.listObjects = arrImg;
+      this.inFolder = true;
+      this.currFolder = folderName;
+    },
     readRawFile (fileName) {
+      // Read a txt or image file
       this.dialog = true;
-      this.currRawFile = null;
+      this.currRawTextFile = null;
       const extn = fileName.match(/\.[0-9a-z]+$/i)[0].slice(1);
-      if( extn === "txt" || extn ==="png" || extn ==="jpg") {
+      // check the file extension
+      if( extn === "txt" || extn ==="png" || extn ==="jpg" || extn ==="jpeg") {
         this.loadingFile = true;
         let link = this.path + '/readfile?bucket=' + this.currBucket +"&fileKey=" + fileName;
         fetch (link).then(response => response.json())
         .then(data => {
-          this.currRawFile = data;
-          if (extn === "png" || extn === "jpg") {
+          this.currRawTextFile = data;
+          if (extn === "png" || extn === "jpg" || extn ==="jpeg") {
             this.image = data;
-            this.currRawFile = ""
+            this.currRawTextFile = ""
           }
           this.loadingFile = false
         })
       }
       else {
-        if (extn === "png") ;//this.download (fileName);
-        else
-          this.currRawFile = "Read Raw file not available to "+extn+" files"
+        this.currRawTextFile = "Read Raw file not available to "+extn+" files"
       }
     },
     deleteFileRow (fileName) {
-      console.log(fileName);
+      // Delete a file from a folder
+      const pathFile = this.currFolder+'/'+fileName
       let link = this.path + '/deletion';
       fetch (link, {
         method: 'DELETE',
-        body: JSON.stringify({'fileKey': fileName, 'bucket':this.currBucket})
+        body: JSON.stringify({'fileKey': pathFile, 'bucket':this.currBucket})
       }).then(res => res.json())
-      .then(data => {
-        this.listObjects.splice(this.listObjects.indexOf(data.fileKey), 1)
+      .then(() => {
+        // Reactivity of deletion
+        this.listObjects.splice(this.listObjects.indexOf(fileName), 1)
+        const arrTreeFile = this.treeFile[this.currFolder]
+        for(let i in arrTreeFile){
+          if (arrTreeFile[i].Key == fileName){
+            arrTreeFile.splice(i,1);
+            break;
+          }
+        }
       })
     },
     getBase64 (file) {
@@ -280,12 +346,14 @@ export default {
       })
     },
 
-    leaveLabelsModal (){
+    leaveLabelsModal () {
+      // Reset properties when leaving label modal 
       this.categoryDialog = false;
       this.listCategory = [];
     },
 
     async imageRekognition () {
+      // fetch recognition method to get differents labels 
       const extFile = this.fileToUpload.name.match(/\.[0-9a-z]+$/i)[0];
 
       if (this.fileToUpload && 
@@ -294,10 +362,9 @@ export default {
         extFile == ".jpeg")) {
         
         const base64Image  = await (this.getBase64(this.fileToUpload));
+        // Need to delete the base64 header in order to be able to use recognition
         const base64ImageF = base64Image.replace(/^data:image\/jpeg;base64,/,"");
         const link = this.path + '/base64-recognition';
-        
-        //console.log(base64Image)
         
         fetch (link, {
             method: 'POST',
@@ -305,44 +372,34 @@ export default {
         })
         .then(res => res.json())
         .then(data => {
-          console.log(data);
           this.image = base64Image;
           this.categoryDialog = true;
           this.listCategory = data.Labels;
         });
       }  
     },
-
-    uploadImageWithLabels (labelsSelected) {
-      console.log(labelsSelected);
-    },
-
-    async uploadFile () {
-
-      //const base64Format = await (this.getBase64 (this.fileToUpload));
-      //console.log(base64Format);
-      const link = this.path + '/upload-up' +"?bucket=" + this.currBucket + "&fileName=" +  + this.fileToUpload.name;
-      console.log(this.fileToUpload)
-    
-      if (this.fileToUpload) {  
-        fetch (link, {
-          method: 'POST',
-          body: this.fileToUpload,
-          headers: {'content-type': this.fileToUpload.type}
-        })
-        /*  method: 'POST',
-          body: JSON.stringify({
-            'key': this.fileToUpload.name,
-            'bucket':this.currBucket,
-            'body': this.fileToUpload.data})
-        */
-        .then(res => res.json())
-        .then(data => {
-          console.log(data);
-          this.listObjects.push(this.fileToUpload.name);
-          this.listObjects.sort()
-          console.log(this.listObjects)
+    async uploadImageWithLabels (labels) {
+      // Upload one image in several category chosen 
+      let base64Image  = await (this.getBase64(this.fileToUpload));
+      if (this.fileToUpload) {
+        for(let i in labels) {
+          let link = this.path  + '/upload';
+          fetch (link, {
+            method: 'POST',
+            body: JSON.stringify({
+              'key': labels[i].Name + '/' + this.fileToUpload.name,
+              'bucket':this.currBucket,
+              'body': base64Image
+            })
           })
+          .then(res => res.json())
+          .then(() => {
+            // Reactivity of addition
+            this.listObjects.push(this.fileToUpload.name);
+            this.listObjects.sort()
+            })
+        }
+        this.listCategory = [];
       }
     },
     clearImage () {

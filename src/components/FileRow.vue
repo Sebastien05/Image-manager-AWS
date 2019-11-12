@@ -3,7 +3,7 @@
         <v-list-item :class="{ 'file-row':true}">
             <div style="width: 45px; margin-right: 25px; ">
                 <v-icon>
-                    {{format[fileName.match(/\.[0-9a-z]+$/i)[0].slice(1)]}}
+                    <!-- {{format[fileName.match(/\.[0-9a-z]+$/i)[0].slice(1)]}} -->
                 </v-icon>
             </div>
             
@@ -66,8 +66,8 @@ export default {
     },
     methods: {
         readFile () {
-            this.$emit('read-raw-file',this.fileName);
-            console.log("read :: "+this.fileName);
+            this.$emit('read-raw-file',this.path+'/'+this.fileName);
+            console.log("read :: "+this.path+'/'+this.fileName);
         },
         downloadFile () {
             console.log("download :: "+this.fileName);
