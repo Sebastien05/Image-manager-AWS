@@ -149,6 +149,7 @@
                     >
                       <FolderRow
                         :folderName="folder"
+                        :fileNumber="treeFile[folder].length"
                         v-on:select-folder="selectFolder"
                         :key="i"
                       />
@@ -157,17 +158,21 @@
                 </v-scale-transition>
                 <v-card-actions v-if="!inFolder">
                   <template>
-                    <v-file-input class="mt-5 ml-4" accept="image/*,audio/*,text/*" filled label="File input" v-model="fileToUpload" dense></v-file-input>
-                    <!-- <v-text-field label="Select Image" @click='pickFile' v-model='imageName' prepend-icon='attach_file'></v-text-field>
-                    <input
-                      type="file"
-                      style="display: none"
-                      ref="image"
-                      accept="image/*"
-                      @change="newUpload"
-                    > -->
+                    <v-file-input class="pt-5 ml-2" style="width: 190px;" 
+                      accept="image/*,text/*" filled label="File input"
+                      v-model="fileToUpload" dense
+                    >
+                    </v-file-input>
                   </template>
                   <v-spacer></v-spacer>
+                  <v-switch
+                    dense
+                    color="primary"
+                    v-model="autoTidyingActivator" 
+                    label="Auto Tidying" 
+                    class="mr-7"
+                  >
+                  </v-switch>
                   <v-btn color="primary"
                     
                     text @click="imageRekognition">
@@ -204,10 +209,12 @@
       <v-card>
         <v-card-title class="subtitle-1">Choose a Label to upload</v-card-title>
         <CategoryModal
-        :listLabels="listCategory"
-        :image="image"
-        v-on:leave-labels-modal="leaveLabelsModal"
-        v-on:validate-image-labels="uploadImageWithLabels"/>
+          :listLabels="listCategory"
+          :image="image"
+          :allLabels="listFolder"
+          v-on:leave-labels-modal="leaveLabelsModal"
+          v-on:validate-image-labels="uploadImageWithLabels"
+        />
       </v-card>
     
     </v-dialog>
@@ -245,9 +252,11 @@ export default {
 
       image: null,
       fileToUpload: null,
-      imageName: null,
       listCategory: [],
+      autoSelectedLabels: [],
       categoryDialog: false,
+
+      autoTidyingActivator: false,
       
       absolute: true,
       format : require('./fileFormat.json'),
@@ -353,7 +362,8 @@ export default {
     },
 
     async imageRekognition () {
-      // fetch recognition method to get differents labels 
+      // fetch recognition method to get differents labels
+      if (!this.fileToUpload) return
       const extFile = this.fileToUpload.name.match(/\.[0-9a-z]+$/i)[0];
 
       if (this.fileToUpload && 
@@ -365,6 +375,8 @@ export default {
         // Need to delete the base64 header in order to be able to use recognition
         const base64ImageF = base64Image.replace(/^data:image\/jpeg;base64,/,"");
         const link = this.path + '/base64-recognition';
+
+        this.loadingFiles = true;
         
         fetch (link, {
             method: 'POST',
@@ -373,15 +385,34 @@ export default {
         .then(res => res.json())
         .then(data => {
           this.image = base64Image;
-          this.categoryDialog = true;
           this.listCategory = data.Labels;
+          if (this.autoTidyingActivator) {
+            this.directAutoUpload();
+          }
+          else {
+            this.categoryDialog = true;
+          }
+          this.loadingFiles = false;
         });
       }  
     },
+    async directAutoUpload () {
+      let similareLabels = [];
+      // console.log(this.listCategory)
+      await this.listCategory.forEach(label => {
+          if (this.listFolder.includes(label.Name) && label.Confidence>90)
+                  similareLabels.push({Name:label.Name});
+      });
+      if (similareLabels.length>0){
+          // console.log(similareLabels)
+          this.uploadImageWithLabels(similareLabels)
+          
+      }
+    },
     async uploadImageWithLabels (labels) {
       // Upload one image in several category chosen 
-      let base64Image  = await (this.getBase64(this.fileToUpload));
       if (this.fileToUpload) {
+        let base64Image  = await (this.getBase64(this.fileToUpload));
         for(let i in labels) {
           let link = this.path  + '/upload';
           fetch (link, {
@@ -400,6 +431,7 @@ export default {
             })
         }
         this.listCategory = [];
+        this.fileToUpload = null;
       }
     },
     clearImage () {

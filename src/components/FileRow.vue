@@ -7,8 +7,8 @@
                 </v-icon>
             </div>
             
-            <v-list-item-content cols="12" sm="6">
-                <v-list-item-title v-html="fileName"></v-list-item-title>
+            <v-list-item-content style="cursor: pointer;" cols="12" sm="6">
+                <v-list-item-title @click="readFile" v-html="fileName"></v-list-item-title>
             </v-list-item-content>
 
             <v-menu :offset-x="offset" bottom right transition="scale-transition">
@@ -67,7 +67,7 @@ export default {
     methods: {
         readFile () {
             this.$emit('read-raw-file',this.path+'/'+this.fileName);
-            console.log("read :: "+this.path+'/'+this.fileName);
+            // console.log("read :: "+this.path+'/'+this.fileName);
         },
         downloadFile () {
             console.log("download :: "+this.fileName);

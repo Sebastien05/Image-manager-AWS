@@ -12,7 +12,7 @@
             >    
             </v-checkbox>
         </v-card-text>
-        <img :src="image" class="ml-8" style="display:block;width:100%;max-width:440px;max-height:300px;">
+        <img :src="image" class="ml-8" style="display:block;width:100%;height:100%;max-width:440px;max-height:300px;">
     </div>
 
     <v-card-actions>
@@ -37,7 +37,7 @@
 
 export default {
 
-    props: ['listLabels','image'],
+    props: ['listLabels','image','allLabels'],
 
     data () {
         return {
@@ -51,7 +51,7 @@ export default {
         addImageLabels () {
             this.$emit('validate-image-labels', this.selectedLabels)
             this.$emit('leave-labels-modal');
-        }
+        },
     }
 }
 </script>

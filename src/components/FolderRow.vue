@@ -7,13 +7,17 @@
                 <v-list-item-title v-html="folderName"></v-list-item-title>
             </v-list-item-content>
 
+            <div>
+                {{fileNumber}}
+            </div>
+
         </v-list-item>
     </v-hover>
 </template>
 
 <script>
 export default {
-    props: ['folderName'],
+    props: ['folderName','fileNumber'],
     methods: {
         selectFolder () {
             this.$emit('select-folder',this.folderName);
