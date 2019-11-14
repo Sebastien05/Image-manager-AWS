@@ -6,14 +6,26 @@
       prominent
       src="https://cdn.vuetifyjs.com/images/backgrounds/vbanner.jpg"
     >
-      <v-toolbar-title class="pb-4">
-        AWS Manager 
+      <v-toolbar-title class="pb-4 ml-3 title">
+        e-PhotoClassifier
       </v-toolbar-title>
       <v-spacer></v-spacer>
       <div class="mt-5">
         Connected to: {{currBucket}}
       </div>
     </v-toolbar>
+    <v-snackbar
+      v-model="snackbar"
+    >
+      {{ notificationMessage }}
+      <v-btn
+        color="primary"
+        text
+        @click="snackbar = false"
+      >
+        Close
+      </v-btn>
+    </v-snackbar>
     <v-container style="height:100%;">
       <v-row
         style="height:100%;"
@@ -67,10 +79,9 @@
                     </v-row>
                   </v-container>
                 </v-overlay>
-                <v-scale-transition style="width: 100%;" class="d-flex flex-wrap">
-                  <v-list dense flat v-if="inFolder">
-                    <v-subheader class="mt-4 mb-7 mr-7 subtitle-1 ml-5 d-flex "> 
-                      List files ~ bucket: {{currBucket}}
+                <div class="pt-1">
+                    <v-subheader v-if="inFolder" class="mt-4 mb-7 mr-7 subtitle-1 ml-5 d-flex "> 
+                      List files ~ folder: {{currFolder}}
                       <v-spacer></v-spacer>
                       <v-card
                         style="font-weight:italic;"
@@ -78,62 +89,7 @@
                         File Number : {{listObjects.length}} 
                       </v-card>
                     </v-subheader>
-                    <v-list-item 
-                      class="file-list-item"
-                      v-for="(file, i) in listObjects"
-                      :key="i"
-                    >
-                      
-                        <FileRow
-                          :fileName="file"
-                          :path="currFolder"
-                          v-on:delete-file-row='deleteFileRow'
-                          v-on:read-raw-file='readRawFile'
-                          :key="i"/>
-
-                        <v-dialog v-model="dialog" max-width="700" persistent no-click-animation>
-                          <v-card
-                            min-height="100"
-                          >
-                            <div v-if="loadingFile">
-                              <v-overlay
-                                :absolute="absolute"
-                                :opacity="0.4"
-                                :value="loadingFile"
-                              >
-                                <v-container>
-                                  <v-row justify="center" align="center">
-                                    <v-progress-circular
-                                      :size="70"
-                                      :width="7"
-                                      color="white"
-                                      indeterminate
-                                    ></v-progress-circular>
-                                  </v-row>
-                                </v-container>
-                              </v-overlay>
-                            </div>
-                            <div v-else>  
-                              <v-card-title class="headline">Display Image</v-card-title>
-                              <v-card-text>
-                                <div v-if="image">
-                                 <img :src="image" class="ml-8" style="display:block;width:100%;max-width:600px">
-                                </div>
-                                <div v-else>
-                                  {{currRawTextFile}}
-                                </div>
-                              </v-card-text>
-                              <v-card-actions>
-                                <v-spacer></v-spacer>
-                                <v-btn color="green darken-1" text @click="clearImage">Exit</v-btn>
-                              </v-card-actions>
-                            </div>
-                          </v-card>
-                      </v-dialog>
-                    </v-list-item>
-                  </v-list>
-                  <v-list dense flat v-else>
-                    <v-subheader class="mt-4 mb-7 mr-7 subtitle-1 ml-5 d-flex "> 
+                    <v-subheader v-else class="mt-4 mb-7 mr-7 subtitle-1 ml-5 d-flex "> 
                       List folder ~ bucket: {{currBucket}}
                       <v-spacer></v-spacer>
                       <v-card
@@ -142,24 +98,83 @@
                         Folder Number : {{listFolder.length}} 
                       </v-card>
                     </v-subheader>
-                    <v-list-item 
-                      class="file-list-item"
-                      v-for="(folder, i) in listFolder"
-                      :key="i"
-                    >
-                      <FolderRow
-                        :folderName="folder"
-                        :fileNumber="treeFile[folder].length"
-                        v-on:select-folder="selectFolder"
+                </div>
+                <v-scale-transition style="width: 100%;" class="d-flex flex-wrap">
+                  <div class="object-list-container">
+                    <v-list dense flat v-if="inFolder">
+                      <v-list-item 
+                        class="file-list-item"
+                        v-for="(file, i) in listObjects"
                         :key="i"
-                      />
-                    </v-list-item>
-                  </v-list>
+                      >
+                          <FileRow
+                            :fileName="file"
+                            :path="currFolder"
+                            v-on:delete-file-row='deleteFileRow'
+                            v-on:read-raw-file='readRawFile'
+                            :key="i"/>
+
+                          <v-dialog v-model="dialog" max-width="700" persistent no-click-animation>
+                            <v-card
+                              min-height="100"
+                            >
+                              <div v-if="loadingFile">
+                                <v-overlay
+                                  :absolute="absolute"
+                                  :opacity="0.4"
+                                  :value="loadingFile"
+                                >
+                                  <v-container>
+                                    <v-row justify="center" align="center">
+                                      <v-progress-circular
+                                        :size="70"
+                                        :width="7"
+                                        color="white"
+                                        indeterminate
+                                      ></v-progress-circular>
+                                    </v-row>
+                                  </v-container>
+                                </v-overlay>
+                              </div>
+                              <div v-else>  
+                                <v-card-title class="headline">Display Image</v-card-title>
+                                <v-card-text>
+                                  <div v-if="image">
+                                  <img :src="image" class="ml-8" style="display:block;width:100%;max-width:600px">
+                                  </div>
+                                  <div v-else>
+                                    {{currRawTextFile}}
+                                  </div>
+                                </v-card-text>
+                                <v-card-actions>
+                                  <v-spacer></v-spacer>
+                                  <v-btn color="green darken-1" text @click="clearImage">Exit</v-btn>
+                                </v-card-actions>
+                              </div>
+                            </v-card>
+                        </v-dialog>
+                      </v-list-item>
+                    </v-list>
+                    <v-list flat v-else>
+                      <v-list-item 
+                        class="file-list-item"
+                        v-for="(folder, i) in listFolder"
+                        :key="i"
+                      >
+                        <FolderRow
+                          :folderName="folder"
+                          :fileNumber="treeFile[folder].length"
+                          v-on:select-folder="selectFolder"
+                          :key="i"
+                        />
+                      </v-list-item>
+                    </v-list>
+                  </div>
                 </v-scale-transition>
                 <v-card-actions v-if="!inFolder">
                   <template>
                     <v-file-input class="pt-5 ml-2" style="width: 190px;" 
-                      accept="image/*,text/*" filled label="File input"
+                      accept="image/*" filled label="File input"
                       v-model="fileToUpload" dense
                     >
                     </v-file-input>
@@ -167,10 +182,10 @@
                   <v-spacer></v-spacer>
                   <v-switch
                     dense
+                    class="mr-7"
                     color="primary"
                     v-model="autoTidyingActivator" 
                     label="Auto Tidying" 
-                    class="mr-7"
                   >
                   </v-switch>
                   <v-btn color="primary"
@@ -191,7 +206,7 @@
                   @click="leaveCurrFolder"
                     class="mr-5"
                     text>
-                    Exit
+                    Back
                   </v-btn>
                 </v-card-actions>
               </div>
@@ -203,11 +218,8 @@
     <v-dialog 
       v-model="categoryDialog"
       max-width="800" 
-      persistent 
-      no-click-animation
+      persistent
     >
-      <v-card>
-        <v-card-title class="subtitle-1">Choose a Label to upload</v-card-title>
         <CategoryModal
           :listLabels="listCategory"
           :image="image"
@@ -215,7 +227,6 @@
           v-on:leave-labels-modal="leaveLabelsModal"
           v-on:validate-image-labels="uploadImageWithLabels"
         />
-      </v-card>
     
     </v-dialog>
   </v-app>
@@ -257,6 +268,8 @@ export default {
       categoryDialog: false,
 
       autoTidyingActivator: false,
+      notificationMessage: "",
+      snackbar: false,
       
       absolute: true,
       format : require('./fileFormat.json'),
@@ -286,7 +299,9 @@ export default {
       // When leaving a folder, need to reset properties and reload all data in case there has been a change elsewhere
       this.listObjects = [];
       this.inFolder = false;
+      this.loadingFiles = true;
       this.getListObjects();
+
     },
     selectFolder (folderName) {
       // build the file array to display when entering a folder
@@ -397,17 +412,25 @@ export default {
       }  
     },
     async directAutoUpload () {
-      let similareLabels = [];
-      // console.log(this.listCategory)
-      await this.listCategory.forEach(label => {
-          if (this.listFolder.includes(label.Name) && label.Confidence>90)
-                  similareLabels.push({Name:label.Name});
-      });
-      if (similareLabels.length>0){
+      let similareLabels = []
+      if (this.listCategory !== undefined){
+        await this.listCategory.forEach(label => {
+            if (this.listFolder.includes(label.Name) && label.Confidence>80)
+                    similareLabels.push({Name:label.Name});
+        });
+        if (similareLabels.length>0){
           // console.log(similareLabels)
           this.uploadImageWithLabels(similareLabels)
-          
+        }else {
+          if(this.listCategory.length>0){
+            this.notificationMessage = "No existing folder corresponding, pass to manual";
+            this.snackbar = true;
+          }
+        }
       }
+      this.notificationMessage = "No label detected";
+      this.snackbar = true;
+      
     },
     async uploadImageWithLabels (labels) {
       // Upload one image in several category chosen 
@@ -426,10 +449,18 @@ export default {
           .then(res => res.json())
           .then(() => {
             // Reactivity of addition
-            this.listObjects.push(this.fileToUpload.name);
-            this.listObjects.sort()
+            // this.treeFile[labels[i].Name].push(this.fileToUpload.name);
+            // this.treeFile[labels[i].Name].sort()
             })
         }
+        this.loadingFiles = true;
+        this.getListObjects();
+        let arrLabels = [];
+        for(const i in labels){
+          arrLabels.push(labels[i].Name)
+        }
+        this.notificationMessage = `Image upload in ${arrLabels}` ;
+        this.snackbar = true,
         this.listCategory = [];
         this.fileToUpload = null;
       }
@@ -444,9 +475,12 @@ export default {
 
 <style scoped>
 
-.file-list-item:hover {
-  background-color: #e3e3e3;
-  transition: all 0.4s;
-}
-
+  .file-list-item:hover {
+    background-color: #e3e3e3;
+    transition: all 0.4s;
+  }
+  .object-list-container {
+    max-height: 300px;
+    overflow-y: auto;
+  }
 </style>
