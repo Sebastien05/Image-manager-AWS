@@ -1,4 +1,4 @@
-# aws_manager
+# Image-manager-AWS
 
 ## Project setup
 ```
